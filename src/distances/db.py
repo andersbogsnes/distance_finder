@@ -5,7 +5,7 @@ Base = declarative_base()
 
 
 class Address(Base):
-    __tablename__ = 'adress'
+    __tablename__ = 'address'
 
     id = Column(Integer, primary_key=True)
     address = Column(String, unique=True)
@@ -14,10 +14,18 @@ class Address(Base):
 
     @classmethod
     def address_exists(cls, session, address):
-        return session.query(cls).where(cls.address == address).first()
+        return session.query(cls).filter(cls.address == address).first()
+
+    def haversine_distance(self, other: 'Address'):
+        if not isinstance(other, Address):
+            raise DistanceAPIError(f"Must compare to another Address - got {type(other)}")
+        return haversine(self.long, self.lat, other.long, other.lat)
 
 
 class Distance(Base):
     __tablename__ = 'distance'
 
-    address_from = Column(Integer, )
+    id = Column(Integer, primary_key=True)
+    from_address = Column(Integer, ForeignKey('address.id'))
+    to_address = Column(Integer, ForeignKey('address.id'))
+    distance = Column(Integer)
