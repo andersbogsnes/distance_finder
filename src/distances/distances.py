@@ -30,22 +30,20 @@ class Distances:
             session.close()
 
     def import_data(self, file_path, from_column='from_address', to_column='to_address'):
-        self.from_addresses = self._load_data(file_path, from_column, office='office')
-        self.to_addresses = self._load_data(file_path, to_column)
+        self.from_addresses = self._load_data(file_path, from_column, home_office=False)
+        self.to_addresses = self._load_data(file_path, to_column, home_office=True)
 
-    def _load_data(self, file_path, column, office='office'):
+    def _load_data(self, file_path: str, column: str, home_office: bool):
         data = read_data(file_path, column)
         with self._session_scope() as session:
-            addresses = [self._add_address(address, session) for address in data]
+            addresses = [self._add_address(address, session, home_office) for address in data]
             session.add_all(addresses)
             session.commit()
             return [address.address for address in addresses]
 
-    def _add_address(self, address, session):
-        result = Address.address_exists(session, address)
+    def _add_address(self, address, session, home_office):
+        result = Address.get_address(session, address)
         if result:
             return result
         else:
-            lat, long = get_lat_long(self.client, address)
-            new_address = Address(address=address, lat=lat, long=long)
-            return new_address
+            return Address.create_address(self.client, session, address, home_office)
