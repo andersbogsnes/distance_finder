@@ -37,3 +37,10 @@ def read_data(file_path, column_name, **kwargs):
         raise DistanceIOError(f"""{file_path.suffix} is unknown,
         use either excel or csv formats""")
     return df[column_name]
+
+
+def validate_address(address):
+    if 'DK' in address.upper():
+        return address
+    else:
+        return f"{address}, DK"
