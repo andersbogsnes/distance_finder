@@ -4,6 +4,8 @@ INSTALL_REQUIRES = [
     'googlemaps',
     'pandas',
     'sqlalchemy',
+    'openpyxl',
+    'xlrd',
 ]
 
 TEST_REQUIRES = [
