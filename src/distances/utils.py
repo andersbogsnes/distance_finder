@@ -17,16 +17,16 @@ class DistanceIOError(Exception):
 
 
 def get_api_key():
-    try:
-        return os.environ['API_KEY']
-    except KeyError:
-        message = f"""Must set API_KEY environment variable - type
-        '{'set' if IS_WINDOWS else 'export'} API_KEY=<your-key>'
-         at the terminal"""
+    api_key = os.getenv('API_KEY')
+    if api_key is None:
+        message = f"""Must set API_KEY environment variable
+                      type '{'set' if IS_WINDOWS else 'export'} API_KEY=<your-key>' 
+                      at the terminal"""
         raise DistanceAPIError(message)
+    return api_key
 
 
-def read_data(file_path, column_name, **kwargs):
+def read_data(file_path: str, **kwargs) -> pd.DataFrame:
     file_path = pathlib.Path(file_path)
 
     if file_path.suffix == '.xlsx' or file_path.suffix == '.xls':
@@ -37,7 +37,7 @@ def read_data(file_path, column_name, **kwargs):
     else:
         raise DistanceIOError(f"""{file_path.suffix} is unknown,
         use either excel or csv formats""")
-    return df[column_name]
+    return df
 
 
 def validate_address(address):
@@ -47,7 +47,7 @@ def validate_address(address):
         return f"{address}, DK"
 
 
-def haversine(lon1, lat1, lon2, lat2):
+def haversine(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     """
     Calculate the great circle distance between two points
     on the earth (specified in decimal degrees)

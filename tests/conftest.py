@@ -2,8 +2,10 @@ import pytest
 import pandas as pd
 from distances import Distances
 import os
-import json
 import googlemaps
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from distances.db import Base
 
 
 @pytest.fixture
@@ -22,6 +24,14 @@ def patch_geocode(monkeypatch, geocoding_response):
         return geocoding_response["results"]
 
     monkeypatch.setattr('googlemaps.Client.geocode', mock_response)
+
+
+@pytest.fixture
+def session():
+    engine = create_engine('sqlite:///:memory:')
+    Session = sessionmaker(bind=engine)
+    Base.metadata.create_all(engine)
+    return Session()
 
 
 @pytest.fixture

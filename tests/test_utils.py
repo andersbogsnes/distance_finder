@@ -21,14 +21,14 @@ def test_get_api_key_works_as_expected_with_key_set():
 
 def test_read_data_works_with_excel(excel_file, dummy_df):
     col_name = dummy_df.columns[0]
-    df = read_data(excel_file, col_name)
+    df = read_data(excel_file)[col_name]
     assert set(dummy_df[col_name]) == set(df)
     assert isinstance(df, pd.Series)
 
 
 def test_read_data_works_with_csv(csv_file, dummy_df):
     col_name = dummy_df.columns[0]
-    df = read_data(csv_file, col_name)
+    df = read_data(csv_file)[col_name]
     assert set(dummy_df[col_name]) == set(df)
     assert isinstance(df, pd.Series)
 

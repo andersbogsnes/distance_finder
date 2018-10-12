@@ -1,11 +1,13 @@
+from typing import List
+
 from googlemaps import Client
-from .utils import get_api_key, read_data
-from .geocoding import get_lat_long
+
+from .geocoding import calculate_distances
+from .utils import get_api_key, read_data, DistanceIOError
 from .db import Address, Base
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from contextlib import contextmanager
-from sqlalchemy.exc import DatabaseError
+from sqlalchemy.orm import sessionmaker, Session
+import pandas as pd
 
 
 class Distances:
@@ -14,36 +16,71 @@ class Distances:
         self.connection_string = connection_string
         self.engine = create_engine(connection_string)
         self.Session = sessionmaker(bind=self.engine)
-        self.from_addresses = None
-        self.to_addresses = None
+        self.session = self.Session()
+        self.from_addresses = []
+        self.to_addresses = []
+        self.results = {}
         Base.metadata.create_all(bind=self.engine)
 
-    @contextmanager
-    def _session_scope(self):
-        session = self.Session()
-        try:
-            yield session
-            session.commit()
-        except DatabaseError:
-            session.rollback()
-        finally:
-            session.close()
+    def import_data_from_df(self, df, from_column, to_column):
+        if to_column is None and from_column is None:
+            raise DistanceIOError("""Must specify one of
+            'from_column' or 'to_column'""")
 
-    def import_data(self, file_path, from_column='from_address', to_column='to_address'):
-        self.from_addresses = self._load_data(file_path, from_column, home_office=False)
-        self.to_addresses = self._load_data(file_path, to_column, home_office=True)
+        if from_column:
+            self.from_addresses = self._load_data(df[from_column], home_office=False)
 
-    def _load_data(self, file_path: str, column: str, home_office: bool):
-        data = read_data(file_path, column)
-        with self._session_scope() as session:
-            addresses = [self._add_address(address, session, home_office) for address in data]
-            session.add_all(addresses)
-            session.commit()
-            return [address.address for address in addresses]
+        if to_column:
+            self.to_addresses = self._load_data(df[to_column], home_office=True)
 
-    def _add_address(self, address, session, home_office):
+        return self
+
+    def import_data_from_file(self,
+                              file_path: str,
+                              from_column: str = 'from_address',
+                              to_column: str = 'to_address') -> 'Distances':
+        """
+        Import data from file - specify from addresses and to addresses
+        :param file_path:
+            path to input file
+        :param from_column:
+            name of column
+        :param to_column:
+            name of column
+        :return:
+            returns self
+        """
+
+        df = read_data(file_path)
+
+        self.import_data_from_df(df, from_column, to_column)
+
+        return self
+
+    def _load_data(self, data: pd.DataFrame, home_office: bool) -> List[Address]:
+        """
+        Internal helper for loading data - checks if each address exists in the database
+        adds them if not present.
+        :param data: Dataframe of input data
+        :param home_office: boolean whether or not this address is a homeoffice
+        :return:
+        """
+
+        addresses = [self._add_address(address, self.session, home_office) for address in data]
+        return addresses
+
+    def _add_address(self, address: str, session: 'Session', home_office: bool) -> 'Address':
         result = Address.get_address(session, address)
         if result:
             return result
         else:
-            return Address.create_address(self.client, session, address, home_office)
+            return Address.create_address(session, address, home_office)
+
+    def get_distances(self):
+        for office in self.from_addresses:
+            self.results[office.address] = calculate_distances(office,
+                                                               self.to_addresses,
+                                                               self.client,
+                                                               self.session)
+
+        return self.results
