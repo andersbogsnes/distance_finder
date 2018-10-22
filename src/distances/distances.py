@@ -19,7 +19,7 @@ class Distances:
         self.session = self.Session()
         self.from_addresses = []
         self.to_addresses = []
-        self.results = {}
+        self.results = []
         Base.metadata.create_all(bind=self.engine)
 
     def import_data_from_df(self, df, from_column, to_column):
@@ -78,9 +78,9 @@ class Distances:
 
     def get_distances(self):
         for office in self.from_addresses:
-            self.results[office.address] = calculate_distances(office,
-                                                               self.to_addresses,
-                                                               self.client,
-                                                               self.session)
-
+            result = calculate_distances(office,
+                                         self.to_addresses,
+                                         self.client,
+                                         self.session)
+            self.results.append(result)
         return self.results

@@ -12,7 +12,7 @@ def get_distance(from_address: 'Address', to_addresses: List['Address'], session
         if distance:
             yield to_address, distance
         else:
-            distance_m, duration = fetch_distance(from_address, to_address, client)
+            distance_m, duration = call_google_api(from_address, to_address, client)
             yield to_address, Distance.create_distance(from_address=from_address,
                                                        to_address=to_address,
                                                        distance=distance_m,
@@ -20,7 +20,7 @@ def get_distance(from_address: 'Address', to_addresses: List['Address'], session
                                                        session=session)
 
 
-def fetch_distance(from_address: 'Address', to_address: 'Address', client: 'Client'):
+def call_google_api(from_address: 'Address', to_address: 'Address', client: 'Client'):
     resp = client.distance_matrix([{"lat": from_address.lat,
                                     "long": from_address.long
                                     }],
@@ -48,15 +48,10 @@ def get_lat_long(address):
     return location["y"], location["x"]
 
 
-def calculate_distances(office, to_addresses, client, session, max_haversine=50):
-    filtered_to_addresses = [address
-                             for address
-                             in to_addresses
-                             if office.haversine(address) > max_haversine]
-
+def calculate_distances(office, to_addresses, client, session):
     return [(office, to_address, distance)
             for to_address, distance
             in get_distance(office,
-                            filtered_to_addresses,
+                            to_addresses,
                             client=client,
                             session=session)]

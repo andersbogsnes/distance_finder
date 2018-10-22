@@ -2,7 +2,7 @@ from typing import List
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Integer, Column, String, Float, ForeignKey, Boolean
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, relationship
 
 from .utils import haversine, DistanceAPIError
 from .geocoding import get_lat_long
@@ -44,11 +44,6 @@ class Address(Base):
     def get_addresses(cls, session: 'Session', addresses: List[str]):
         return session.query(cls).filter(cls.address.in_(addresses)).all()
 
-    def haversine_distance(self, other: 'Address'):
-        if not isinstance(other, Address):
-            raise DistanceAPIError(f"""Must compare to another Address - got {type(other)}""")
-        return haversine(self.long, self.lat, other.long, other.lat)
-
 
 class Distance(Base):
     __tablename__ = 'distance'
@@ -58,6 +53,11 @@ class Distance(Base):
     to_address_id = Column(Integer, ForeignKey('address.id'))
     distance = Column(Integer)
     duration = Column(Integer)
+
+    from_address = relationship("Address", primaryjoin=from_address_id == Address.id,
+                                backref='from_distance')
+    to_address = relationship("Address", primaryjoin=to_address_id == Address.id,
+                              backref='to_distance')
 
     def __init__(self, from_address_id, to_address_id, distance, duration):
         self.from_address_id = from_address_id
