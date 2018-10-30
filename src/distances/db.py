@@ -4,9 +4,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Integer, Column, String, Float, ForeignKey, Boolean
 from sqlalchemy.orm import Session, relationship
 
-from .utils import haversine, DistanceAPIError
-from .geocoding import get_lat_long
-
 Base = declarative_base()
 
 
@@ -31,6 +28,7 @@ class Address(Base):
 
     @classmethod
     def create_address(cls, session, address, home_office):
+        from .geocoding import get_lat_long
         lat, lng = get_lat_long(address)
         new_address = cls(address=address,
                           lat=lat,
@@ -55,9 +53,9 @@ class Distance(Base):
     duration = Column(Integer)
 
     from_address = relationship("Address", primaryjoin=from_address_id == Address.id,
-                                backref='from_distance')
+                                backref='to_distance')
     to_address = relationship("Address", primaryjoin=to_address_id == Address.id,
-                              backref='to_distance')
+                              backref='from_distance')
 
     def __init__(self, from_address_id, to_address_id, distance, duration):
         self.from_address_id = from_address_id

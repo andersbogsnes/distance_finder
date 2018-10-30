@@ -1,8 +1,8 @@
 from typing import List
 
 import requests
-from .db import Distance, Address
 from .utils import DistanceAPIError
+from .db import Address, Distance
 from googlemaps import Client
 
 
@@ -10,27 +10,28 @@ def get_distance(from_address: 'Address', to_addresses: List['Address'], session
     for to_address in to_addresses:
         distance = Distance.get_distance(session, from_address, to_address)
         if distance:
-            yield to_address, distance
+            yield distance
         else:
             distance_m, duration = call_google_api(from_address, to_address, client)
-            yield to_address, Distance.create_distance(from_address=from_address,
-                                                       to_address=to_address,
-                                                       distance=distance_m,
-                                                       duration=duration,
-                                                       session=session)
+            yield Distance.create_distance(from_address=from_address,
+                                           to_address=to_address,
+                                           distance=distance_m,
+                                           duration=duration,
+                                           session=session)
 
 
 def call_google_api(from_address: 'Address', to_address: 'Address', client: 'Client'):
     resp = client.distance_matrix([{"lat": from_address.lat,
-                                    "long": from_address.long
+                                    "lng": from_address.long
                                     }],
                                   [{"lat": to_address.lat,
-                                    "long": to_address.long}])
-    base_resp = resp["rows"][0]["elements"]
-    if base_resp["status"] == "OK":
-        return base_resp["distance"], base_resp["duration"]
-    else:
-        raise DistanceAPIError(f"Issue with {from_address.address} or {to_address.address}")
+                                    "lng": to_address.long}])
+    if resp["status"] == "OK":
+        base_resp = resp["rows"][0]["elements"][0]
+        if base_resp["status"] == "OK":
+            return base_resp["distance"]["value"], base_resp["duration"]["value"]
+
+    raise DistanceAPIError(f"Issue with {from_address.address} or {to_address.address}")
 
 
 def call_dawa(address):
@@ -44,14 +45,5 @@ def get_lat_long(address):
     try:
         location = response[0]
     except IndexError:
-        raise DistanceAPIError(f"{address} cannot be found - check for typos")
+        raise DistanceAPIError(f"{address} cannot be found - check for typos") from None
     return location["y"], location["x"]
-
-
-def calculate_distances(office, to_addresses, client, session):
-    return [(office, to_address, distance)
-            for to_address, distance
-            in get_distance(office,
-                            to_addresses,
-                            client=client,
-                            session=session)]

@@ -1,11 +1,16 @@
-from math import radians, cos, sin, asin, sqrt
 import os
 import pathlib
 import platform
+import logging
 
 import pandas as pd
 
+from .db import Session, Address
+
+
 IS_WINDOWS = platform.system() == 'Windows'
+
+logger = logging.getLogger('distances.utils')
 
 
 class DistanceAPIError(Exception):
@@ -14,6 +19,17 @@ class DistanceAPIError(Exception):
 
 class DistanceIOError(Exception):
     pass
+
+
+def add_address(address: str, session: 'Session', home_office: bool) -> 'Address':
+    logger.debug(f"Loading {address}")
+    result = Address.get_address(session, address)
+    if result:
+        logger.debug(f"{address} found in DB")
+        return result
+    else:
+        logger.debug(f"{address} not found in DB - Creating new address")
+        return Address.create_address(session, address, home_office)
 
 
 def get_api_key():
@@ -40,25 +56,16 @@ def read_data(file_path: str, **kwargs) -> pd.DataFrame:
     return df
 
 
-def validate_address(address):
-    if 'DK' in address.upper():
-        return address
-    else:
-        return f"{address}, DK"
+def configure_logger():
+    log_level = os.getenv('LOG_LEVEL', 'INFO')
+    log_level = getattr(logging, log_level)
+    base_logger = logging.getLogger('distances')
+    base_logger.setLevel(log_level)
 
+    default_handler = logging.StreamHandler()
+    default_format = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s',
+                                       datefmt='%H:%M:%S')
+    default_handler.setFormatter(default_format)
 
-def haversine(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    """
-    Calculate the great circle distance between two points
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    # haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    c = 2 * asin(sqrt(a))
-    # Radius of earth in kilometers is 6371
-    km = 6371 * c
-    return km
+    base_logger.addHandler(default_handler)
+    return base_logger

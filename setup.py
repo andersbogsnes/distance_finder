@@ -6,6 +6,7 @@ INSTALL_REQUIRES = [
     'sqlalchemy',
     'openpyxl',
     'xlrd',
+    'requests'
 ]
 
 TEST_REQUIRES = [

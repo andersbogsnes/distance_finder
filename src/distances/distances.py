@@ -2,12 +2,14 @@ from typing import List
 
 from googlemaps import Client
 
-from .geocoding import calculate_distances
-from .utils import get_api_key, read_data, DistanceIOError
+from .geocoding import get_distance
+from .utils import get_api_key, read_data, DistanceIOError, configure_logger, add_address
 from .db import Address, Base
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 import pandas as pd
+
+logger = configure_logger()
 
 
 class Distances:
@@ -22,7 +24,7 @@ class Distances:
         self.results = []
         Base.metadata.create_all(bind=self.engine)
 
-    def import_data_from_df(self, df, from_column, to_column):
+    def import_data_from_df(self, df, from_column=None, to_column=None):
         if to_column is None and from_column is None:
             raise DistanceIOError("""Must specify one of
             'from_column' or 'to_column'""")
@@ -66,21 +68,31 @@ class Distances:
         :return:
         """
 
-        addresses = [self._add_address(address, self.session, home_office) for address in data]
+        addresses = [add_address(address, self.session, home_office)
+                     for address
+                     in data]
         return addresses
 
-    def _add_address(self, address: str, session: 'Session', home_office: bool) -> 'Address':
-        result = Address.get_address(session, address)
-        if result:
-            return result
-        else:
-            return Address.create_address(session, address, home_office)
-
     def get_distances(self):
-        for office in self.from_addresses:
-            result = calculate_distances(office,
-                                         self.to_addresses,
-                                         self.client,
-                                         self.session)
-            self.results.append(result)
+        for index, office in enumerate(self.from_addresses, start=1):
+            logger.info(
+                f"{index}/{len(self.from_addresses)}: Calculating distance from {office.address}")
+            for distance in get_distance(office, self.to_addresses,
+                                         client=self.client,
+                                         session=self.session):
+                self.results.append(distance)
         return self.results
+
+    def output_distances(self):
+        if not self.results:
+            self.get_distances()
+
+        data = [(distance.from_address.address,
+                 distance.to_address.address,
+                 distance.duration,
+                 distance.distance) for distance in self.results]
+
+        return pd.DataFrame(data=data, columns=['from_address',
+                                                'to_address',
+                                                'duration',
+                                                'distance'])
