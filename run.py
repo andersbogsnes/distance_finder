@@ -112,9 +112,16 @@ def run(from_file,
     output_df = client.output_distances()
 
     merged_data = merge_dfs(from_df, to_df, output_df)
-    min_distance = calculate_min_distance(merged_data, column=metric, threshold=threshold)
+    min_distance = calculate_min_distance(merged_data)
+    over_threshold = min_distance[min_distance[metric] <= threshold]
+    under_threshold = min_distance[min_distance[metric] > threshold]
 
-    min_distance.to_excel(f'results_max_{metric}_{threshold}.xlsx')
+    writer = pd.ExcelWriter(f'results_max_{metric}_{threshold}.xlsx')
+
+    over_threshold.to_excel(writer, sheet_name=f'Over {threshold}', index=False)
+    under_threshold.to_excel(writer, sheet_name=f'Under {threshold}', index=False)
+
+    writer.save()
 
 
 if __name__ == '__main__':
